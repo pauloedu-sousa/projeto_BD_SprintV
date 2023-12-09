@@ -192,6 +192,27 @@ UPDATE LC.Visita
 SET data_visita = '2023-12-06'
 WHERE id = 1;
 
+-- Criando TRIGGER P/ALTERAR QUANTIDADE DE VISITAS DO CONSULTOR
+DELIMITER //
+
+CREATE TRIGGER InserirQtdVisita
+ AFTER INSERT ON LC.Visita
+ FOR EACH ROW
+ BEGIN
+    DECLARE visitaQuantidade INT;
+
+    -- Controle de quantidade de visitas por consultor 
+	SELECT LC.Consultor.qtd_visita INTO visitaQuantidade
+	FROM LC.Consultor
+	WHERE LC.Consultor.id = NEW.LC.Consultor.id;
+	
+	-- Atualizar quantidade de visitas na tabela consultor
+	UPDATE LC.Consultor
+	SET LC.Consultor.qtd_visita = visitaQuantidade + 1
+	WHERE LC.Consultor.id = NEW.LC.Consultor.id;
+ END //
+ DELIMITER;
+
 -- Criando Funcções e TRIGGERs
 CREATE FUNCTION multiplica(num1 INT, num2 FLOAT)
   RETURNS FLOAT AS $$
@@ -201,13 +222,20 @@ CREATE FUNCTION multiplica(num1 INT, num2 FLOAT)
 $$ LANGUAGE 'plpgsql';
 
 SELECT multiplica(3, 1500.00)
+DROP FUNCTION aplicar_desconto
 
-CREATE OR REPLACE FUNCTION aplicar_desconto(preco FLOAT, desconto FLOAT)
+CREATE OR REPLACE FUNCTION aplicar_desconto(vlr_visita FLOAT, desconto FLOAT)
   RETURNS FLOAT AS $$
   BEGIN
-   RETURN preco * (1 - desconto);
+   RETURN vlr_visita * (1 - desconto);
   END
 $$ LANGUAGE 'plpgsql'
+
+-- Aplicando a função aplicar_desconto em uma Consult Joins
+SELECT LC.Consultor.nome AS "Nome", aplicar_desconto(vlr_visita, 0.20)
+	 FROM LC.Consultor
+   
+
 
 CREATE FUNCTION celular()
 RETURNS TRIGGER AS $$
