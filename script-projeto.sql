@@ -1,12 +1,41 @@
-CREATE TABLE LC.Cliente (id serial NOT NULL PRIMARY KEY, nome VARCHAR (50) NOT NULL,
-tipo CHAR NOT NULL);
+--Criação da Database
+	CREATE DATABASE "empresa_XYZ"
+    WITH 
+    OWNER = postgres
+    ENCODING = 'UTF8'
+    LC_COLLATE = 'Portuguese_Brazil.1252'
+    LC_CTYPE = 'Portuguese_Brazil.1252'
+    TABLESPACE = pg_default
+    CONNECTION LIMIT = -1;
+
+--Criação da Schema
+
+CREATE SCHEMA LC;
+
+--Criando as Tabelas Cliente
+
+
+CREATE TABLE LC.Cliente 
+    (id serial NOT NULL PRIMARY KEY, 
+	 nome VARCHAR (50) NOT NULL,
+     tipo CHAR NOT NULL);
 
 COMMENT ON COLUMN LC.Cliente.tipo IS 'F - Física / J - Jurídica';
 
 ALTER TABLE LC.Cliente add column celular VARCHAR(20);
 
-CREATE TABLE LC.Veiculo (id serial NOT NULL, nome VARCHAR (50) NOT NULL, placa VARCHAR (12) NOT NULL, km integer NOT NULL, cor VARCHAR (20) NOT NULL, ativo CHAR (1),
-PRIMARY KEY (id));
+--Criando Tabela Veículo
+
+CREATE TABLE LC.Veiculo 
+   (id serial NOT NULL, 
+	nome VARCHAR (50) NOT NULL, 
+	placa VARCHAR (12) NOT NULL, 
+	km integer NOT NULL, 
+	cor VARCHAR (20) NOT NULL, 
+	ativo CHAR (1),
+    PRIMARY KEY (id));
+	
+--Criando Tabela Consultor
 
 CREATE TABLE LC.Consultor 
          (id bigserial NOT NULL PRIMARY KEY, 
@@ -17,6 +46,8 @@ CREATE TABLE LC.Consultor
          vlr_visita money NOT NULL, 
         FOREIGN KEY (id_veic) REFERENCES LC.Veiculo (id),
         FOREIGN KEY (id_cli) REFERENCES LC.Cliente (id));
+		
+--Criando a Tabela Visita
 
 CREATE TABLE LC.Visita (
 	id bigserial NOT NULL PRIMARY KEY,
@@ -35,6 +66,11 @@ CREATE TABLE LC.Visita (
 );
 
 COMMENT ON COLUMN LC.Visita.tipo_visita IS 'C - CONSULTORIA / A - ACESSORIA';
+
+--Alterando o Tipo de dado da coluna data_visita da Tabela LC.Visita
+ALTER TABLE LC.Visita ALTER COLUMN data_visita TYPE TIMESTAMP;
+
+--POPULANDO DADOS NAS TABELAS – INSERT
 
 INSERT INTO LC.Cliente (nome, tipo, celular)
 VALUES ('Gustavo', 'F', '(93)91445589'),
@@ -86,10 +122,12 @@ SELECT * FROM LC.Cliente
 WHERE  id = 5;
 
 
---■ REALIZANDO CONSULTAS UTILIZANDO JOINs UNINDO AS TABELAS
+--■ REALIZANDO CONSULTAS UTILIZANDO INNERs, RIGHT e LEFT JOINs UNINDO AS TABELAS
 SELECT LC.Consultor.nome as "CONSULTOR",
 	   LC.Visita.data_visita  as "DATA VISITA",
+	   LC.Cliente.id as "Código",
 	   LC.Cliente.nome  as "CLIENTE",
+	   LC.Cliente.celular as "Fone",
 	   LC.Veiculo.placa  as "VEÍCULO",
 	   LC.Visita.km_saida  as "KM SAÍDA",
 	   LC.Visita.km_retorno  as "KM RETORNO",
@@ -98,23 +136,97 @@ SELECT LC.Consultor.nome as "CONSULTOR",
 FROM LC.Visita
 	INNER JOIN LC.Consultor  ON (LC.Consultor.id = LC.Visita.id_consultor)
 	INNER JOIN LC.Cliente  ON (LC.Cliente.id = LC.Visita.id_cliente)
-	INNER JOIN LC.Veiculo  ON (LC.Veiculo.id = LC.Visita.id_veiculo);
+	INNER JOIN LC.Veiculo  ON (LC.Veiculo.id = LC.Visita.id_veiculo)
+    WHERE LC.Visita.tipo_visita = 'A'
 	
---Criando TRIGGER NAS TABELAS
+SELECT LC.Cliente.ID AS "Código",
+       LC.Cliente.nome AS "Nome",
+	   LC.Cliente.celular AS "Fone",
+	   LC.Visita.data_visita AS "Data",
+	   LC.Visita.tipo_visita AS "Tipo",
+	   LC.Veiculo.nome AS "Carro"
+FROM LC.Cliente
+   LEFT JOIN LC.Visita  ON (LC.Visita.id_cliente = LC.Cliente.id)
+   LEFT JOIN LC.Veiculo ON (LC.Veiculo.id = LC.Visita.id_veiculo)
+   
+SELECT LC.Cliente.ID AS "Código",
+       LC.Cliente.nome AS "Nome",
+	   LC.Cliente.celular AS "Fone",
+	   LC.Visita.data_visita AS "Data",
+	   LC.Visita.tipo_visita AS "Tipo",
+	   LC.Veiculo.nome AS "Carro"
+FROM LC.Cliente
+   RIGHT JOIN LC.Visita  ON (LC.Visita.id_cliente = LC.Cliente.id)
+   RIGHT JOIN LC.Veiculo ON (LC.Veiculo.id = LC.Visita.id_veiculo)
+   
+	   
 
-DELIMITER $$
+	
+--Criando TRIGGER before insert com função na coluna data_visita na tabela LC.Visita
+CREATE FUNCTION data_visita()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.data_visita = NOW();
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER datas_visitas
+  BEFORE INSERT
+  ON LC.Visita
+  FOR EACH ROW
+  EXECUTE PROCEDURE data_visita();
+  
+--Inserindo dados de visita sem informar data de visita executando Procedure
+INSERT INTO LC.Visita (tipo_visita, id_veiculo, nome, placa,
+km_saida, km_retorno, id_cliente, id_consultor)
+VALUES ('A', '1', 'GOL 1000', 'RTY-2344', '300', '500', '2', '1');
+
+INSERT INTO LC.Visita (tipo_visita, id_veiculo, nome, placa,
+km_saida, km_retorno, id_cliente, id_consultor)
+VALUES ('A', '1', 'GOL 1000', 'RTY-2344', '500', '700', '6', '1');
+
+SELECT * FROM LC.Visita;
+
+UPDATE LC.Visita
+SET data_visita = '2023-12-06'
+WHERE id = 1;
+
+-- Criando Funcções e TRIGGERs
+CREATE FUNCTION celular()
+RETURNS TRIGGER AS $$
+BEGIN
+ IF NEW.celular IS NULL;
+    INSERT INTO lembrete(celular, mensagem)
+	VALUES(CONCAT('Novo celular inserido ', new.id, 'atualize seu celular.'));
+	return lembrete;
+ END;
+$$ language 'plpgsql';
+
+DELIMITER //
 CREATE TRIGGER inserir_dados
-AFTER INSERT
-ON LC.Cliente FOR EACH ROW
+AFTER INSERT ON LC.Cliente 
+FOR EACH ROW
 BEGIN
  IF NEW.celular IS NULL THEN
-    INSERT INTO lembrete(id, mensagem)
-	VALUES(new.id,CONCAT(Oi', NEW.nome,', atualize seu celular.'));
- END IF;
-END$$
+    INSERT INTO lembrete(celular, mensagem)
+	VALUES(CONCAT('Novo celular inserido ', new.id, 'atualize seu celular.'));
+ END;
+
+DELIMITER;
 
 	
 --Criando um PROCEDURE (Procedimento) PARA RESGATAR DADOS DE UMA TABELA
+CREATE FUNCTION visitas_dia(dia timestamp)
+RETURNS INT
+BEGIN
+    DECLARE total INT;
+    SELECT COUNT(*) INTO total
+    FROM LC.Visita
+    WHERE data_visita = dia;
+    RETURN total;
+END //
+
 DELIMITER//
  CREATE PROCEDURE verVisitas()					 
  BENGIN
