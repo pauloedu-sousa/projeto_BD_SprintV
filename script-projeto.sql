@@ -193,6 +193,22 @@ SET data_visita = '2023-12-06'
 WHERE id = 1;
 
 -- Criando Funcções e TRIGGERs
+CREATE FUNCTION multiplica(num1 INT, num2 FLOAT)
+  RETURNS FLOAT AS $$
+  BEGIN
+   RETURN num1 * num2;
+  END
+$$ LANGUAGE 'plpgsql';
+
+SELECT multiplica(3, 1500.00)
+
+CREATE OR REPLACE FUNCTION aplicar_desconto(preco FLOAT, desconto FLOAT)
+  RETURNS FLOAT AS $$
+  BEGIN
+   RETURN preco * (1 - desconto);
+  END
+$$ LANGUAGE 'plpgsql'
+
 CREATE FUNCTION celular()
 RETURNS TRIGGER AS $$
 BEGIN
