@@ -88,6 +88,9 @@ VALUES ('GOL 1000', 'RTY-2344', '0', 'AZUL', 'S'),
        ('FIAT SIENA', 'XXI-5994', '0', 'AZUL', 'S'),
 	   ('FIAT PALIO', 'ABC-1234', '0', 'AZUL', 'S'), 
        ('FIAT PALIO', 'ABX-3356', '0', 'AZUL', 'S');
+	   
+INSERT INTO LC.Veiculo (nome, placa, km, cor, ativo)
+VALUES ('ONIX 1.6', 'JDE-7777', '0', 'BRANCO', 'S');
 
 SELECT * FROM LC.Veiculo;
 
@@ -97,6 +100,9 @@ VALUES ('GUSTAVO BIAL', '1', '1', '1', '1200'),
 	   ('ROGERIO ALVES', '3', '3', '1', '1500'),
 	   ('GUSTAVO BRETA', '4', '4', '1', '1890'),
 	   ('FELIPE SIQUEIRA', '5', '5', '1', '2100');
+
+INSERT INTO LC.Consultor (nome, id_veic, id_cli, qtd_visita, vlr_visita)
+VALUES('PAULO SOUSA', '6', '6', '4', '1800.00');
 
 SELECT * FROM LC.Consultor;
 
@@ -116,13 +122,16 @@ VALUES ('01/10/2018', 'C', '1', 'GOL 1000', 'RTY-2344',
 -- CONSULTA BÁSICA - SELECT
 SELECT * FROM LC.Visita;
 SELECT * FROM LC.Consultor;
+SELECT * FROM LC.Veiculo;
 
 -- CONSULTA BÁSICA -  UTILIZANDO WHERE - SELECT
 SELECT * FROM LC.Cliente
 WHERE  id = 5;
 
 
---■ REALIZANDO CONSULTAS UTILIZANDO INNERs, RIGHT e LEFT JOINs UNINDO AS TABELAS
+--■ REALIZANDO CONSULTAS UTILIZANDO INNER JOIN  UNINDO AS TABELAS 
+-- E EXECUTANDO AS FUNÇÕES tipoVisita e multiplica
+
 SELECT LC.Consultor.nome as "CONSULTOR",
 	   LC.Visita.data_visita  as "DATA VISITA",
 	   LC.Cliente.id as "Código",
@@ -131,36 +140,53 @@ SELECT LC.Consultor.nome as "CONSULTOR",
 	   LC.Veiculo.placa  as "VEÍCULO",
 	   LC.Visita.km_saida  as "KM SAÍDA",
 	   LC.Visita.km_retorno  as "KM RETORNO",
+	   tipoVisita(vlr_visita) as "TIPO",
 	   LC.Consultor.qtd_visita as "QTD",
-	   LC.Consultor.vlr_visita as "Comissão"
+	   LC.Consultor.vlr_visita as "Comissão",
+	   multiplica(qtd_visita, vlr_visita) AS "Valor Total"
 FROM LC.Visita
 	INNER JOIN LC.Consultor  ON (LC.Consultor.id = LC.Visita.id_consultor)
 	INNER JOIN LC.Cliente  ON (LC.Cliente.id = LC.Visita.id_cliente)
 	INNER JOIN LC.Veiculo  ON (LC.Veiculo.id = LC.Visita.id_veiculo)
-    WHERE LC.Visita.tipo_visita = 'A'
+    WHERE LC.Cliente.id = 1
+	
+--■ REALIZANDO CONSULTAS UTILIZANDO INNER LEFT JOIN UNINDO AS TABELAS COM OS 
+--DADOS DA ESQUERDA E EXECUTANDO AS FUNÇÕES tipoVisita e multiplica
 	
 SELECT LC.Cliente.ID AS "Código",
        LC.Cliente.nome AS "Nome",
 	   LC.Cliente.celular AS "Fone",
 	   LC.Visita.data_visita AS "Data",
-	   LC.Visita.tipo_visita AS "Tipo",
-	   LC.Veiculo.nome AS "Carro"
+	   LC.Consultor.id AS "CONSULTOR",
+	   LC.Visita.id AS "VISITA",
+	   tipoVisita(vlr_visita) as "TIPO",
+	   LC.Veiculo.nome AS "Carro",
+	   multiplica(qtd_visita, vlr_visita) AS "Valor Total"
+	   
 FROM LC.Cliente
+   LEFT JOIN LC.Consultor ON (LC.Consultor.id_cli = LC.Cliente.id)
    LEFT JOIN LC.Visita  ON (LC.Visita.id_cliente = LC.Cliente.id)
    LEFT JOIN LC.Veiculo ON (LC.Veiculo.id = LC.Visita.id_veiculo)
+   
+--■ REALIZANDO CONSULTAS UTILIZANDO RIGHT JOIN UNINDO 
+--AS TABELAS COM OS DADOS DA DIREITA E EXECUTANDO AS FUNÇÕES tipoVisita e multiplica
    
 SELECT LC.Cliente.ID AS "Código",
        LC.Cliente.nome AS "Nome",
 	   LC.Cliente.celular AS "Fone",
+	   LC.Consultor.id AS "Consultor",
+	   LC.Veiculo.nome AS "Carro",
 	   LC.Visita.data_visita AS "Data",
-	   LC.Visita.tipo_visita AS "Tipo",
-	   LC.Veiculo.nome AS "Carro"
+	   LC.Visita.id AS "VISITA",
+	   tipoVisita(vlr_visita) as "TIPO",
+	   multiplica(qtd_visita, vlr_visita) AS "Valor Total"
+	   
 FROM LC.Cliente
    RIGHT JOIN LC.Visita  ON (LC.Visita.id_cliente = LC.Cliente.id)
    RIGHT JOIN LC.Veiculo ON (LC.Veiculo.id = LC.Visita.id_veiculo)
+   RIGHT JOIN LC.Consultor ON (LC.Consultor.id = LC.Visita.id_consultor)
    
 	   
-
 	
 --Criando TRIGGER before insert com função na coluna data_visita na tabela LC.Visita
 CREATE FUNCTION data_visita()
@@ -186,34 +212,66 @@ INSERT INTO LC.Visita (tipo_visita, id_veiculo, nome, placa,
 km_saida, km_retorno, id_cliente, id_consultor)
 VALUES ('A', '1', 'GOL 1000', 'RTY-2344', '500', '700', '6', '1');
 
+INSERT INTO LC.Visita (tipo_visita, id_veiculo, nome, placa,
+km_saida, km_retorno, id_cliente, id_consultor)
+VALUES ('C', '1', 'GOL 1000', 'RTY-2344', '700', '800', '5', '1');
+
+SELECT * FROM LC.Visita;
+alter table LC.Consultor alter column vlr_visita type float;
+
+--■ Criação da Função que retorna tipoVisita CONFORME VALOR DA VISITA
+
+CREATE FUNCTION tipoVisita(vlr_visita MONEY)
+RETURNS TEXT AS $$
+BEGIN
+    IF vlr_visita < 2000 THEN
+	     RETURN 'Acessoria';
+    ELSIF vlr_visita > 2000 THEN
+	       RETURN 'Consultoria';
+    ELSE 
+	   RETURN 'Não parametizado';
+    END IF;
+END;
+$$ language 'plpgsql';
+
+--■ EXCLUINDO A FUNÇÃO tipoVisita com o DROP
+DROP FUNCTION tipoVisita(MONEY);
+
+--■ Recriando a função tipoVisita excluida
+
+CREATE OR REPLACE FUNCTION tipoVisita(vlr_visita DOUBLE PRECISION)
+RETURNS TEXT AS $$
+BEGIN
+    IF vlr_visita < 2000 THEN
+	     RETURN 'Acessoria';
+    ELSIF vlr_visita > 2000 THEN
+	       RETURN 'Consultoria';
+    ELSE 
+	   RETURN 'Não parametizado';
+    END IF;
+END;
+$$ language 'plpgsql';
+
+-- Realizando Consulta executando a Função
+SELECT
+   LC.Consultor.id AS "ID",
+   LC.Consultor.nome AS "AGENTE",
+   LC.Consultor.qtd_visita AS "QTD VISITA",
+   tipoVisita(vlr_visita),
+   multiplica(qtd_visita, vlr_visita) AS "Valor Total"
+   
+   FROM LC.Consultor;
+   
+
+SELECT * FROM LC.Consultor;
 SELECT * FROM LC.Visita;
 
 UPDATE LC.Visita
 SET data_visita = '2023-12-06'
 WHERE id = 1;
 
--- Criando TRIGGER P/ALTERAR QUANTIDADE DE VISITAS DO CONSULTOR
-DELIMITER //
 
-CREATE TRIGGER InserirQtdVisita
- AFTER INSERT ON LC.Visita
- FOR EACH ROW
- BEGIN
-    DECLARE visitaQuantidade INT;
-
-    -- Controle de quantidade de visitas por consultor 
-	SELECT LC.Consultor.qtd_visita INTO visitaQuantidade
-	FROM LC.Consultor
-	WHERE LC.Consultor.id = NEW.LC.Consultor.id;
-	
-	-- Atualizar quantidade de visitas na tabela consultor
-	UPDATE LC.Consultor
-	SET LC.Consultor.qtd_visita = visitaQuantidade + 1
-	WHERE LC.Consultor.id = NEW.LC.Consultor.id;
- END //
- DELIMITER;
-
--- Criando Funcções e TRIGGERs
+-- Criando Funcção multiplica
 CREATE FUNCTION multiplica(num1 INT, num2 FLOAT)
   RETURNS FLOAT AS $$
   BEGIN
@@ -221,8 +279,22 @@ CREATE FUNCTION multiplica(num1 INT, num2 FLOAT)
   END
 $$ LANGUAGE 'plpgsql';
 
+--■ Aplicando a função multiplica em uma Consulta simples
 SELECT multiplica(3, 1500.00)
-DROP FUNCTION aplicar_desconto
+
+
+--■ Criando Função aplicar_desconto
+CREATE  FUNCTION aplicar_desconto(vlr_visita FLOAT, desconto FLOAT)
+  RETURNS FLOAT AS $$
+  BEGIN
+   RETURN vlr_visita * (1 - desconto);
+  END
+$$ LANGUAGE 'plpgsql'
+
+--■ Excluindo a função aplicar_desconto
+DROP FUNCTION aplicar_desconto;
+
+--■ Recriando a Função aplicar_desconto
 
 CREATE OR REPLACE FUNCTION aplicar_desconto(vlr_visita FLOAT, desconto FLOAT)
   RETURNS FLOAT AS $$
@@ -236,56 +308,8 @@ SELECT LC.Consultor.nome AS "Nome", aplicar_desconto(vlr_visita, 0.20)
 	 FROM LC.Consultor
    
 
-
-CREATE FUNCTION celular()
-RETURNS TRIGGER AS $$
-BEGIN
- IF NEW.celular IS NULL;
-    INSERT INTO lembrete(celular, mensagem)
-	VALUES(CONCAT('Novo celular inserido ', new.id, 'atualize seu celular.'));
-	return lembrete;
- END;
-$$ language 'plpgsql';
-
-DELIMITER //
-CREATE TRIGGER inserir_dados
-AFTER INSERT ON LC.Cliente 
-FOR EACH ROW
-BEGIN
- IF NEW.celular IS NULL THEN
-    INSERT INTO lembrete(celular, mensagem)
-	VALUES(CONCAT('Novo celular inserido ', new.id, 'atualize seu celular.'));
- END;
-
-DELIMITER;
-
 	
---Criando um PROCEDURE (Procedimento) PARA RESGATAR DADOS DE UMA TABELA
-CREATE FUNCTION visitas_dia(dia timestamp)
-RETURNS INT
-BEGIN
-    DECLARE total INT;
-    SELECT COUNT(*) INTO total
-    FROM LC.Visita
-    WHERE data_visita = dia;
-    RETURN total;
-END //
 
-DELIMITER//
- CREATE PROCEDURE verVisitas()					 
- BENGIN
-  SELECT * FROM LC.Visita;
- END//
- DELIMITER;
-						 
-DELIMITER$$
- CREATE PROCEDURE saberValor (visita smallint)
- select CONCAT('O Valor é', vlr_visita) AS Total
- BENGIN
-  SELECT * FROM LC.Visita;
-  WHERE id = visita;
- END//
- DELIMITER;
 
 
 
